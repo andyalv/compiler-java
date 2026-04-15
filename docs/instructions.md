@@ -21,7 +21,7 @@ tabla depto
        fechanac fecha
        salario numeros
        depende_de depto  
-    end
+    fin
   cerrar
 ```
 
