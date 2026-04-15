@@ -147,6 +147,8 @@ campo   : ID  (t=NUMERICO | t=ALFABETICO | t=FECHA)
                        System.out.println(", "+$ID.text + " VARCHAR(300)" );
                     else if(($t.text).compareTo("fecha")==0)
                        System.out.println(", "+$ID.text + " DATE" ); 
+                    else if (($t.text).compareTo("numeros")==0)
+                       System.out.println(", "+$ID.text+ " NUMERIC" );
                     else  System.out.println(", "+$ID.text + " " +$t.text );    
 
                  //el que sigue es código para crear estructura de datos
