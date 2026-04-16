@@ -26,15 +26,19 @@ grammar root;
         // No columns defined, skip SQL generation
         if (table.columns.isEmpty()) return;
 
-        String sql_statement = "CREATE TABLE " + table.name + " (";
-        sql_statement += table.name + "_key INTEGER AUTOINCREMENT NOT NULL";
+        String sql_statement = "CREATE TABLE IF NOT EXISTS " + table.name + " (";
+        sql_statement += table.name + "_key SERIAL PRIMARY KEY";
 
         for (Column col : table.columns) {
             String precision = (col.precision != null) ? "(" + col.precision + ")" : "";
             sql_statement += ", " + col.name + " " + col.dataType + precision;
         }
 
-        sql_statement += ";";
+        for (String rel : table.relationships) {
+            sql_statement += ", fk_" + rel + " INTEGER REFERENCES " + rel + "(" + rel + "_key)";
+        }
+
+        sql_statement += ");";
 
         System.out.println(sql_statement);
     }
@@ -48,25 +52,20 @@ grammar root;
 
 start : statement+ ;
 
-statement : connectionDef
-          | tableDef { generateSQL(); } // Generate SQL after processing all statements
-          ;
+statement : 
+        CREATE_DATABASE ID {
+            System.out.println("CREATE DATABASE " + $ID.text + ";");
+        }
+        | connectionDef
+        | tableDef { generateSQL(); } 
+        ;
 
 connectionDef: 
-                createDatabaseDef
-                | useDatabaseDef tableDef* {
-                    generateSQL(); // Generate SQL after processing connection and table definitions
-                } 
-                CLOSECON {
-                    System.out.println("/q");
-                }
-                ;
-
-createDatabaseDef: 
-    CREATE_DATABASE ID {
-        System.out.println("CREATE DATABASE " + $ID.text + ";");
-    }
-    ;
+            useDatabaseDef tableDef* { generateSQL(); }
+            CLOSECON {
+                System.out.println("/q");
+            }
+            ;
 
 useDatabaseDef: USE_DATABASE ID {
         System.out.println("/c " + $ID.text);
@@ -101,7 +100,24 @@ fieldDef:
         currentColumn = null; // Reset current column after adding to table
     }
     | RELATIONSHIP ID {
-        // Handle relationship definition if needed
+        String id = $ID.text;
+        boolean relationshipExists = false;
+
+        // Check if ID is an existing table
+        for (Table t : tables) {
+            if (!t.name.equals(id))
+                continue;
+           
+            currentTable.relationships.add(t.name);
+            relationshipExists = true;
+            return; // Exit after finding the matching table
+        }
+
+        if (!relationshipExists) {
+            System.err.println("Error: Relationship target '" + id + "' does not exist.");
+            System.exit(1); // Exit with error code
+        }
+
     }
     ;
 
