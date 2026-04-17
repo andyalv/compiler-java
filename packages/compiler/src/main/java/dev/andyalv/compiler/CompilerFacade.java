@@ -1,8 +1,13 @@
 package dev.andyalv.compiler;
+
 import org.antlr.runtime.*;
 
 public class CompilerFacade {
-    public String compile(String source) throws Exception {
+    public String compile(String source) throws CompilationException {
+        if (source == null || source.isBlank()) {
+            throw new CompilationException("Source code cannot be empty.");
+        }
+
         try {
             ANTLRStringStream input = new ANTLRStringStream(source);
             rootLexer lexer = new rootLexer(input);
@@ -10,12 +15,22 @@ public class CompilerFacade {
             rootParser parser = new rootParser(tokens);
             parser.start();
 
-            if (parser.hasErrors())
-                throw new Exception("Compilation failed with errors: " + parser.getErrors());
+            if (parser.hasErrors()) {
+                throw new CompilationException(parser.getErrors());
+            }
 
             return parser.getSQL();
-        } catch (Exception e) {
-            throw new Exception("An error occurred while compiling source code", e);
+        } catch (CompilationException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            String message = e.getMessage();
+            if (message != null && !message.isBlank()) {
+                throw new CompilationException(message, e);
+            }
+
+            throw e;
+        } catch (RecognitionException e) {
+            throw new CompilationException(e.getMessage(), e);
         }
     }
 }
