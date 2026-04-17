@@ -9,6 +9,10 @@ public class CompilerFacade {
             CommonTokenStream tokens = new CommonTokenStream(lexer);
             rootParser parser = new rootParser(tokens);
             parser.start();
+
+            if (parser.hasErrors())
+                throw new Exception("Compilation failed with errors: " + parser.getErrors());
+
             return parser.getSQL();
         } catch (Exception e) {
             throw new Exception("An error occurred while compiling source code", e);

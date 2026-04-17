@@ -17,6 +17,7 @@ grammar root;
     Table currentTable = null;
     Column currentColumn = null;
     List<String> sqlLines = new ArrayList<String>();
+    List<String> errors = new ArrayList<String>();
 
     Map<String, String> datatypeMapping = new HashMap<String, String>() {{
         put("integer", "INTEGER");
@@ -24,6 +25,21 @@ grammar root;
         put("string", "VARCHAR");
         put("date", "DATE");
     }};
+
+    @Override
+    public void displayRecognitionError(String[] tokenNames, RecognitionException e) {
+        String message = getErrorMessage(e, tokenNames);
+        String errorMessage = "Syntax error at line " + e.line + ", position " + e.charPositionInLine + ": " + message;
+        errors.add(errorMessage);
+    }
+
+    public boolean hasErrors() {
+        return !errors.isEmpty();
+    }
+
+    public String getErrors() {
+        return String.join("\n", errors);
+    }
 
     public void generateTableSQL(Table table) {
         // No table defined, skip SQL generation
