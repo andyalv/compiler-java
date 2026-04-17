@@ -1,3 +1,4 @@
+package dev.andyalv.compiler;
 
 public class Column {
     String name;

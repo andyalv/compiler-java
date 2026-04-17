@@ -1,16 +1,22 @@
 grammar root;
 
-@header {
+@lexer::header {
+    package dev.andyalv.compiler;
+}
+
+@parser::header {
+    package dev.andyalv.compiler;
+
     import java.util.ArrayList;
     import java.util.List;
     import java.util.HashMap;
     import java.util.Map;
 }
-
 @members {
     List<Table> tables = new ArrayList<Table>();
     Table currentTable = null;
     Column currentColumn = null;
+    List<String> sqlLines = new ArrayList<String>();
 
     Map<String, String> datatypeMapping = new HashMap<String, String>() {{
         put("integer", "INTEGER");
@@ -40,12 +46,16 @@ grammar root;
 
         sql_statement += ");";
 
-        System.out.println(sql_statement);
+        sqlLines.add(sql_statement);
     }
 
-    public void generateSQL() {
-        for (Table table : tables) {
-            generateTableSQL(table);
+    public String getSQL() {
+        return String.join("\n", sqlLines);
+    }
+
+    public void printSQL() {
+        for (String line : sqlLines) {
+            System.out.println(line);
         }
     }
 }
@@ -54,21 +64,21 @@ start : statement+ ;
 
 statement : 
         CREATE_DATABASE ID {
-            System.out.println("CREATE DATABASE " + $ID.text + ";");
+            sqlLines.add("CREATE DATABASE " + $ID.text + ";");
         }
         | connectionDef
-        | tableDef { generateSQL(); } 
+        | tableDef
         ;
 
 connectionDef: 
-            useDatabaseDef tableDef* { generateSQL(); }
+            useDatabaseDef tableDef*
             CLOSECON {
-                System.out.println("/q");
+                sqlLines.add("/q");
             }
             ;
 
 useDatabaseDef: USE_DATABASE ID {
-        System.out.println("/c " + $ID.text);
+        sqlLines.add("/c " + $ID.text);
     }
     ;
 
@@ -82,6 +92,7 @@ tableDef:
     }
     fieldDef+
     END {
+        generateTableSQL(currentTable); // Generate SQL for the current table
         currentTable = null; // Reset current table after finishing definition
     }
     ;
@@ -114,8 +125,7 @@ fieldDef:
         }
 
         if (!relationshipExists) {
-            System.err.println("Error: Relationship target '" + id + "' does not exist.");
-            System.exit(1); // Exit with error code
+            throw new RuntimeException("Relationship target '" + id + "' does not exist.");
         }
 
     }
