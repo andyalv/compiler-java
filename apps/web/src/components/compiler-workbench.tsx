@@ -70,10 +70,14 @@ const editorTheme = EditorView.theme({
   ".cm-cursor, .cm-dropCursor": {
     borderLeftColor: "rgba(255,255,255,0.72)",
   },
+  ".cm-content": {
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+  },
 })
 
-const editorExtensions = [editorTheme]
-const sqlEditorExtensions = [editorTheme, sql()]
+const editorExtensions = [editorTheme, EditorView.lineWrapping]
+const sqlEditorExtensions = [editorTheme, EditorView.lineWrapping, sql()]
 
 const API_BASE_URL = (import.meta.env.PUBLIC_API_BASE_URL || "http://localhost:8080").replace(/\/$/, "")
 
