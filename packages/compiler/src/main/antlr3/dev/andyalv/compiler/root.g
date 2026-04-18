@@ -88,13 +88,13 @@ statement :
 
 connectionDef: 
             useDatabaseDef tableDef*
-            CLOSECON {
-                sqlLines.add("/q");
+            | CLOSECON {
+                sqlLines.add("\\q");
             }
             ;
 
 useDatabaseDef: USE_DATABASE ID {
-        sqlLines.add("/c " + $ID.text);
+        sqlLines.add("\\c " + $ID.text);
     }
     ;
 
