@@ -13,9 +13,15 @@ grammar root;
     import java.util.Map;
 }
 @members {
-    List<Table> tables = new ArrayList<Table>();
-    Table currentTable = null;
-    Column currentColumn = null;
+    DatabaseSchema schema = new DatabaseSchema();
+
+    DatabaseDef currentDatabase = null;
+    TableDef currentTable = null;
+    ColumnDef currentColumn = null;
+
+    // Global list of tables for relationship validation, this will be populated as tables are defined and used to validate relationships
+    List<TableDef> tables = new ArrayList<TableDef>();
+
     List<String> sqlLines = new ArrayList<String>();
     List<String> errors = new ArrayList<String>();
 
@@ -33,25 +39,21 @@ grammar root;
         errors.add(errorMessage);
     }
 
-    public boolean hasErrors() {
-        return !errors.isEmpty();
+    public CompilationResultDef getCompilation() {
+        return new CompilationResultDef(schema, errors, sqlLines);
     }
 
-    public String getErrors() {
-        return String.join("\n", errors);
-    }
-
-    public void generateTableSQL(Table table) {
+    public String generateTableSQL(TableDef table) {
         // No table defined, skip SQL generation
-        if (table == null) return;
+        if (table == null) return null;
 
         // No columns defined, skip SQL generation
-        if (table.columns.isEmpty()) return;
+        if (table.columns.isEmpty() && table.relationships.isEmpty()) return null;
 
         String sql_statement = "CREATE TABLE IF NOT EXISTS " + table.name + " (";
         sql_statement += table.name + "_key SERIAL PRIMARY KEY";
 
-        for (Column col : table.columns) {
+        for (ColumnDef col : table.columns) {
             String precision = (col.precision != null) ? "(" + col.precision + ")" : "";
             sql_statement += ", " + col.name + " " + col.dataType + precision;
         }
@@ -62,16 +64,17 @@ grammar root;
 
         sql_statement += ");";
 
-        sqlLines.add(sql_statement);
+        return sql_statement;
     }
 
-    public String getSQL() {
-        return String.join("\n", sqlLines);
+    public void appendTableToSQL(TableDef table) {
+        String sql = generateTableSQL(table);
+        if (sql != null) sqlLines.add(sql);
     }
 
-    public void printSQL() {
-        for (String line : sqlLines) {
-            System.out.println(line);
+    public void printStringList(List<String> source) {
+        for (String row : source) {
+            System.out.println(row);
         }
     }
 }
@@ -80,6 +83,7 @@ start : statement+ ;
 
 statement : 
         CREATE_DATABASE ID {
+            schema.addDatabase(new DatabaseDef($ID.text));
             sqlLines.add("CREATE DATABASE " + $ID.text + ";");
         }
         | connectionDef
@@ -89,11 +93,22 @@ statement :
 connectionDef: 
             useDatabaseDef tableDef*
             | CLOSECON {
+                currentDatabase = null; // Reset current database context on close connection
                 sqlLines.add("\\q");
             }
             ;
 
 useDatabaseDef: USE_DATABASE ID {
+        // If database already exists in schema, set as current context,
+        // this will return null if it doesn't exist, which we will handle by creating a new database context
+        currentDatabase = schema.getDatabase($ID.text);
+
+        // If database doesn't exist, create new context and add to schema
+        if (currentDatabase == null) {
+            currentDatabase = new DatabaseDef($ID.text);
+            schema.addDatabase(currentDatabase);
+        }
+
         sqlLines.add("\\c " + $ID.text);
     }
     ;
@@ -101,23 +116,27 @@ useDatabaseDef: USE_DATABASE ID {
 // Table definition with fields
 tableDef: 
     TABLE ID START  {
-        // Code to create data structure for the table
-        Table t = new Table($ID.text);
-        tables.add(t);
-        currentTable = t;
+        currentTable = new TableDef($ID.text);
+
+        if (currentDatabase != null)
+            currentDatabase.addTable(currentTable); // Add to current database context if exists
+        else
+            schema.addOrphanTable(currentTable); // Add to schema as orphan table if no database context
+
+        tables.add(currentTable); // Add to global tables list for relationship validation
     }
     fieldDef+
     END {
-        generateTableSQL(currentTable); // Generate SQL for the current table
+        appendTableToSQL(currentTable); // Append Table SQL after finishing definition to SQL lines list
         currentTable = null; // Reset current table after finishing definition
     }
     ;
 
 // ID {Update current column} dataType precisionDef? ;
 fieldDef: 
-    ID { 
-        currentColumn = new Column();
-        currentColumn.name = $ID.text;
+    ID {
+        // Create new column definition with the ID as the column name, this will be updated with data type and precision in subsequent rules
+        currentColumn = new ColumnDef($ID.text);
     }
     dataType precisionDef? {
         if (currentColumn.precision == null && currentColumn.dataType.equals("VARCHAR"))
@@ -131,11 +150,10 @@ fieldDef:
         boolean relationshipExists = false;
 
         // Check if ID is an existing table
-        for (Table t : tables) {
-            if (!t.name.equals(id))
-                continue;
-           
-            currentTable.relationships.add(t.name);
+        for (TableDef table : tables) {
+            if (!table.name.equals(id)) continue;
+
+            currentTable.relationships.add(table.name);
             relationshipExists = true;
             return; // Exit after finding the matching table
         }
@@ -143,7 +161,6 @@ fieldDef:
         if (!relationshipExists) {
             throw new RuntimeException("Relationship target '" + id + "' does not exist.");
         }
-
     }
     ;
 
@@ -153,7 +170,7 @@ dataType:
     | NUMERIC   { currentColumn.dataType = datatypeMapping.get($NUMERIC.text); }
     | STRING    { currentColumn.dataType = datatypeMapping.get($STRING.text); }
     | DATE      { currentColumn.dataType = datatypeMapping.get($DATE.text); }
-  ;
+    ;
 
 // Precision definition for numeric and string types (e.g. '0,2' or '255')
 precisionDef: 

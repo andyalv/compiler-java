@@ -14,7 +14,7 @@ public class Manual {
                        department_code string 10
                        number   integer
                        responsabilities string
-                    end\s
+                    end
                 table empleado
                     start
                        name string 40
@@ -43,7 +43,7 @@ public class Manual {
                     end
                 closecon
                 """;
-        String sql = facade.compile(sintax_error);
-        System.out.println(sql);
+        CompilationResultDef compilation = facade.compile(correct_input);
+        System.out.println(compilation);
     }
 }
