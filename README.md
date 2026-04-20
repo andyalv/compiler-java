@@ -23,12 +23,12 @@ The main goal of this repository is to design and implement a compiler that:
 
 The repository also provides the infrastructure around that compiler so it can be tested from a browser:
 
-- a Spring Boot API that exposes compilation over HTTP
+- a Spring Boot API that exposes compilation over HTTP and returns both SQL and structured schema data
 - an Astro + React frontend that works as a small IDE/editor
 
 ## Current End-to-End Flow
 
-`Web editor -> Spring Boot API -> Java/ANTLR compiler -> generated PostgreSQL SQL`
+`Web editor -> Spring Boot API -> Java/ANTLR compiler -> generated PostgreSQL SQL + schema payload`
 
 ## Current Scope
 
@@ -37,8 +37,8 @@ This repository includes:
 - ANTLR grammar for the current version of the DSL
 - Java compiler facade for invoking the parser
 - SQL generation for database creation, table creation, fields, and simple relationships
-- HTTP API for sending source text and receiving SQL or errors
-- web interface for writing source code and compiling it
+- HTTP API for sending source text and receiving SQL plus schema data or errors
+- web interface for writing source code, compiling it, and exporting SQL and a schema text file
 
 ## Repository Structure
 
@@ -93,7 +93,7 @@ Location: `apps/api`
 - Main endpoint: `POST /compile`
 - Validates the request body
 - Calls `CompilerFacade` from the compiler package
-- Returns either generated SQL or an error message as JSON
+- Returns generated SQL plus schema data, or an error message as JSON
 
 Important detail:
 
@@ -106,13 +106,14 @@ Location: `apps/web`
 
 - Built with Astro, React, TypeScript, Tailwind CSS, and CodeMirror
 - Main page: `apps/web/src/pages/index.astro`
-- Main UI component: `apps/web/src/components/compiler-workbench.tsx`
+- Main UI component: `apps/web/src/components/compiler/CompilerWorkbench.tsx`
 
 What it does:
 
 - provides an editor for the custom language
 - sends the source code to the API
-- displays either generated SQL or compilation errors
+- displays generated SQL, schema data, or compilation errors
+- generates the schema text download client-side from the API `schema` payload
 
 ### 4. Dev services
 
@@ -221,7 +222,7 @@ bun install
 
 ## Running the Project
 
-Turbo is the root-level runner for the workspace applications.
+Turbo is the root-level runner for `apps/web` and `apps/api`. The compiler package is still a separate Maven package.
 
 ### Recommended order
 
@@ -241,7 +242,7 @@ mvn install
 ### 2. Run both apps from the root with Turbo
 
 ```sh
-bun dev
+bun run dev
 ```
 
 This runs the root Turborepo pipeline and starts the workspace `dev` scripts concurrently.
@@ -253,7 +254,7 @@ bun install
 cd packages/compiler
 mvn install
 cd ../..
-bun dev
+bun run dev
 ```
 
 ## Running Individual Parts
@@ -284,10 +285,12 @@ The compiler package is a Maven package, so it is not started through a Bun work
 ### Build everything available from the root
 
 ```sh
-bun build
+bun run build
 ```
 
 This uses Turborepo to run the workspace build scripts.
+
+Do not use `bun build` here. In this repository it invokes Bun's bundler directly and fails with `Missing entrypoints`.
 
 ### Build the web app only
 
@@ -318,7 +321,7 @@ File: `apps/web/.env`
 PUBLIC_API_BASE_URL=http://localhost:8080
 ```
 
-If not set, the frontend defaults to `http://localhost:8080`.
+This variable is required by `apps/web/src/lib/compiler/api.ts`. The repository already includes `apps/web/.env` with `http://localhost:8080`.
 
 ### PostgreSQL dev service
 
@@ -343,11 +346,38 @@ docker compose up -d
 
 This service is available for local PostgreSQL usage during development.
 
+The current API does not have datasource configuration and does not execute the generated SQL against PostgreSQL; `POST /compile` only returns SQL plus schema data, or compilation errors.
+
+## Verification
+
+Useful checks while working on the repo:
+
+```sh
+bun --filter web build
+```
+
+```sh
+cd apps/api
+./mvnw.cmd test
+```
+
+```sh
+cd apps/api
+./mvnw.cmd test -Dtest=CompileControllerTests
+```
+
+```sh
+cd packages/compiler
+mvn test
+```
+
 ## Important Constraints
 
 - the course brief is in Spanish, but the implemented grammar is in English
 - the compiler is the main task of the project
-- the current repository already covers the path from web input to SQL generation
+- the current repository already covers the path from web input to SQL and schema generation
+- `relationship <table>` only works if the target table was defined earlier in the same source
+- generated output includes `\c <db>` and `\q`, which are `psql` commands rather than plain SQL
 
 ## Where to Start Reading the Code
 
@@ -357,7 +387,7 @@ If you want to understand the repository quickly, start with these files:
 - `packages/compiler/src/main/antlr3/dev/andyalv/compiler/root.g` for the grammar and generation rules
 - `packages/compiler/src/main/java/dev/andyalv/compiler/CompilerFacade.java` for the compiler entrypoint
 - `apps/api/src/main/java/dev/andyalv/api/compile/` for the HTTP compilation flow
-- `apps/web/src/components/compiler-workbench.tsx` for the browser-side integration
+- `apps/web/src/components/compiler/CompilerWorkbench.tsx` for the browser-side integration
 
 ## Summary
 
