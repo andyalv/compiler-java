@@ -1,18 +1,14 @@
 ---
-import { CompilerWorkbench } from "@/components/compiler-workbench"
-import "../styles/global.css"
+import Hero from "@/components/index/Hero.astro"
+import WorkbenchSection from "@/components/index/WorkbenchSection.astro"
+import BaseLayout from "@/layouts/BaseLayout.astro"
 ---
 
-<html lang="es" class="dark">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Compilador de BD</title>
-	</head>
-	<body>
-		<CompilerWorkbench client:load />
-	</body>
-</html>
+<BaseLayout title="Compilador de BD">
+	<main class="min-h-screen bg-[#050505] text-white">
+		<div class="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+			<Hero />
+			<WorkbenchSection />
+		</div>
+	</main>
+</BaseLayout>
