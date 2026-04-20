@@ -1,4 +1,6 @@
 package dev.andyalv.api.compile;
 
-public record CompileResponse(String sql) {
+import dev.andyalv.compiler.DatabaseSchema;
+
+public record CompileResponse(String sql, DatabaseSchema schema) {
 }

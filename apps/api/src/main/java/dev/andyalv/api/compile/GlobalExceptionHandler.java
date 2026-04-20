@@ -10,24 +10,21 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-	@ExceptionHandler(CompileRequestException.class)
-	public ResponseEntity<CompileErrorResponse> handleBadRequest(CompileRequestException exception) {
-		return ResponseEntity.badRequest().body(new CompileErrorResponse(exception.getMessage()));
-	}
+	@ExceptionHandler({CompileRequestException.class, CompilationException.class, HttpMessageNotReadableException.class})
+	public ResponseEntity<CompileErrorResponse> handleBadRequest(Exception exception) {
+		String message = exception instanceof HttpMessageNotReadableException
+				? "Invalid JSON request body."
+				: exception.getMessage();
 
-	@ExceptionHandler(CompilationException.class)
-	public ResponseEntity<CompileErrorResponse> handleCompilationError(CompilationException exception) {
-		return ResponseEntity.badRequest().body(new CompileErrorResponse(exception.getMessage()));
-	}
-
-	@ExceptionHandler(HttpMessageNotReadableException.class)
-	public ResponseEntity<CompileErrorResponse> handleUnreadableBody() {
-		return ResponseEntity.badRequest().body(new CompileErrorResponse("Invalid JSON request body."));
+		return error(HttpStatus.BAD_REQUEST, message);
 	}
 
 	@ExceptionHandler(Exception.class)
-	public ResponseEntity<CompileErrorResponse> handleUnexpectedError(Exception exception) {
-		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-				.body(new CompileErrorResponse("Internal server error."));
+	public ResponseEntity<CompileErrorResponse> handleUnexpectedError() {
+		return error(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error.");
+	}
+
+	private ResponseEntity<CompileErrorResponse> error(HttpStatus status, String message) {
+		return ResponseEntity.status(status).body(new CompileErrorResponse(message));
 	}
 }

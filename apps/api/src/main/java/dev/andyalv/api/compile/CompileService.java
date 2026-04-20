@@ -1,6 +1,7 @@
 package dev.andyalv.api.compile;
 
 import dev.andyalv.compiler.CompilationException;
+import dev.andyalv.compiler.CompilationResultDef;
 import dev.andyalv.compiler.CompilerFacade;
 import org.springframework.stereotype.Service;
 
@@ -9,7 +10,8 @@ public class CompileService {
 
 	private final CompilerFacade compilerFacade = new CompilerFacade();
 
-	public String compile(CompileRequest request) throws CompileRequestException, CompilationException {
+	public CompileResponse compile(CompileRequest request)
+			throws Exception {
 		if (request == null) {
 			throw new CompileRequestException("Request body is required.");
 		}
@@ -19,6 +21,17 @@ public class CompileService {
 			throw new CompileRequestException("Field 'source' is required.");
 		}
 
-		return compilerFacade.compile(source.trim());
+		CompilationResultDef compilation;
+		try {
+			compilation = compilerFacade.compile(source.trim());
+		} catch (RuntimeException exception) {
+			String message = exception.getMessage();
+			throw new CompilationException(
+					message == null || message.isBlank() ? "Compilation failed." : message,
+					exception);
+		}
+
+		String sql = String.join("\n", compilation.getSql());
+		return new CompileResponse(sql, compilation.getSchema());
 	}
 }

@@ -21,8 +21,7 @@ public class CompileController {
 
 	@PostMapping
 	public ResponseEntity<CompileResponse> compile(@RequestBody CompileRequest request)
-			throws CompileRequestException, CompilationException {
-		String sql = compileService.compile(request);
-		return ResponseEntity.ok(new CompileResponse(sql));
+			throws CompileRequestException, CompilationException, Exception {
+		return ResponseEntity.ok(compileService.compile(request));
 	}
 }
